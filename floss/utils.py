@@ -22,6 +22,7 @@ import logging
 import argparse
 import builtins
 import contextlib
+from functools import lru_cache
 from typing import Set, Tuple, Iterable, Optional
 from pathlib import Path
 from collections import OrderedDict
@@ -275,7 +276,9 @@ def extract_strings(buffer: bytes, min_length: int, exclude: Optional[Set[str]] 
     if len(buffer) < min_length:
         return
 
-    for s in floss.strings.extract_ascii_unicode_strings(buffer):
+    exclude_set = exclude if exclude is None or isinstance(exclude, set) else set(exclude)
+
+    for s in floss.strings.extract_ascii_unicode_strings(buffer, min_length):
         if len(s.string) > MAX_STRING_LENGTH:
             continue
 
@@ -294,7 +297,7 @@ def extract_strings(buffer: bytes, min_length: int, exclude: Optional[Set[str]] 
 
         logger.trace("strip: %s -> %s", s.string, decoded_string)
 
-        if exclude and decoded_string in exclude:
+        if exclude_set and decoded_string in exclude_set:
             continue
 
         yield StaticString(string=decoded_string, offset=s.offset, encoding=s.encoding)
@@ -328,28 +331,35 @@ FP_FILTER_STRICT_INCLUDE = re.compile(r"^\[.*?]$|%[sd]")
 FP_FILTER_STRICT_SPECIAL_CHARS = re.compile(r"[^A-Za-z0-9.]")
 FP_FILTER_STRICT_KNOWN_FP = re.compile(r"^O.*A$")
 
+STRIP_REGEXES = (
+    FP_FILTER_PREFIX_1,
+    FP_FILTER_SUFFIX_1,
+    FP_FILTER_REP_CHARS_1,
+    FP_FILTER_REP_CHARS_2,
+    FP_FILTER_MINGW32,
+    FP_FILTER_JUNK1,
+    FP_FILTER_FATAL,
+    FP_FILER_LALL,
+)
 
-def strip_string(s) -> str:
+STRICT_STRIP_REGEXES = (
+    FP_FILTER_STRICT_KNOWN_FP,
+    FP_FILTER_STRICT_SPECIAL_CHARS,
+)
+
+
+@lru_cache(maxsize=4096)
+def strip_string(s: str) -> str:
     """
     Return string stripped from false positive (FP) pre- or suffixes.
     :param s: input string
     :return: string stripped from FP pre- or suffixes
     """
-    for reg in (
-        FP_FILTER_PREFIX_1,
-        FP_FILTER_SUFFIX_1,
-        FP_FILTER_REP_CHARS_1,
-        FP_FILTER_REP_CHARS_2,
-        FP_FILTER_MINGW32,
-        FP_FILTER_JUNK1,
-        FP_FILTER_FATAL,
-        FP_FILER_LALL,
-    ):
-        s = re.sub(reg, "", s)
-    if len(s) <= MAX_STRING_LENGTH_FILTER_STRICT:
-        if not re.match(FP_FILTER_STRICT_INCLUDE, s):
-            for reg2 in (FP_FILTER_STRICT_KNOWN_FP, FP_FILTER_STRICT_SPECIAL_CHARS):
-                s = re.sub(reg2, "", s)
+    for reg in STRIP_REGEXES:
+        s = reg.sub("", s)
+    if len(s) <= MAX_STRING_LENGTH_FILTER_STRICT and not FP_FILTER_STRICT_INCLUDE.match(s):
+        for reg2 in STRICT_STRIP_REGEXES:
+            s = reg2.sub("", s)
     return s
 
 
@@ -515,7 +525,7 @@ def get_referenced_strings(vw: vivisect.VivWorkspace, fva: int) -> Set[str]:
                         continue
                     else:
                         # see strings.py for why we don't include \r and \n
-                        strings.update([ss.rstrip("\x00") for ss in re.split("\r\n", s)])
+                        strings.update(ss.rstrip("\x00") for ss in s.split("\r\n"))
     return strings
 
 
