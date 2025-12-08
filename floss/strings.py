@@ -30,6 +30,35 @@ SLICE_SIZE = 4096
 
 
 def buf_filled_with(buf, character):
+    if not buf:
+        return False
+
+    try:
+        mv = memoryview(buf)
+    except TypeError:
+        mv = None
+
+    if mv is not None:
+        if isinstance(character, str):
+            char = character.encode("latin1")
+        elif isinstance(character, int):
+            char = bytes((character,))
+        else:
+            char = bytes(character[:1]) if hasattr(character, "__getitem__") else bytes(character)
+
+        if not char:
+            return False
+
+        dupe_chunk = char * SLICE_SIZE
+        for offset in range(0, len(mv), SLICE_SIZE):
+            chunk = mv[offset : offset + SLICE_SIZE]
+            if len(chunk) == SLICE_SIZE:
+                if chunk != dupe_chunk:
+                    return False
+            elif chunk.tobytes() != dupe_chunk[: len(chunk)]:
+                return False
+        return True
+
     dupe_chunk = character * SLICE_SIZE
     for offset in range(0, len(buf), SLICE_SIZE):
         new_chunk = buf[offset : offset + SLICE_SIZE]
