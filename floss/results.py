@@ -23,6 +23,8 @@ from dataclasses import field
 
 from pydantic import TypeAdapter, ValidationError
 
+from floss.const import MAX_FILE_SIZE
+
 # we use pydantic for dataclasses so that we can
 # easily load and validate JSON reports.
 #
@@ -203,6 +205,7 @@ class Metadata:
     version: str = __version__
     imagebase: int = 0
     min_length: int = 0
+    max_file_size: int = MAX_FILE_SIZE
     runtime: Runtime = field(default_factory=Runtime)
     language: str = ""
     language_version: str = ""
