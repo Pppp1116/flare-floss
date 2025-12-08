@@ -15,13 +15,16 @@
 
 import os
 import sys
+import math
 import codecs
 import logging
 import argparse
 import textwrap
+import multiprocessing
 from enum import Enum
 from time import time
-from typing import Set, List, Optional
+from typing import Set, List, Optional, Dict
+from dataclasses import dataclass
 from pathlib import Path
 
 import halo
@@ -254,6 +257,16 @@ def make_parser(argv):
         ),
     )
     advanced_group.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help=(
+            "number of worker processes to use for decoded strings (default: 1, can also set FLOSS_WORKERS)"
+            if show_all_options
+            else argparse.SUPPRESS
+        ),
+    )
+    advanced_group.add_argument(
         "--disable-progress",
         action="store_true",
         help="disable all progress bars" if show_all_options else argparse.SUPPRESS,
@@ -472,6 +485,94 @@ def load_vw(
         logger.debug("not saving workspace")
 
     return vw
+
+
+@dataclass
+class DecodeWorkerArgs:
+    sample_path: Path
+    format: str
+    sigpaths: List[Path]
+    min_length: int
+    functions: List[int]
+    verbosity: int
+
+
+def get_worker_count(cli_workers: Optional[int]) -> int:
+    env_value = os.environ.get("FLOSS_WORKERS")
+    workers = cli_workers if cli_workers is not None else None
+
+    if workers is None and env_value not in (None, ""):
+        try:
+            workers = int(env_value)
+        except ValueError:
+            workers = 1
+
+    if workers is None or workers < 1:
+        return 1
+
+    return workers
+
+
+def chunk_functions(functions: List[int], workers: int) -> List[List[int]]:
+    if not functions:
+        return []
+
+    if workers <= 1:
+        return [functions]
+
+    chunk_size = math.ceil(len(functions) / workers)
+    return [functions[i : i + chunk_size] for i in range(0, len(functions), chunk_size)]
+
+
+def decode_strings_worker(args: DecodeWorkerArgs):
+    vw = load_vw(args.sample_path, args.format, args.sigpaths, should_save_workspace=False)
+    return decode_strings(
+        vw,
+        args.functions,
+        args.min_length,
+        verbosity=args.verbosity,
+        disable_progress=True,
+    )
+
+
+def decode_strings_parallel(
+    sample_path: Path,
+    format: str,
+    sigpaths: List[Path],
+    functions: List[int],
+    min_length: int,
+    verbosity: int,
+    worker_count: int,
+    function_order: Optional[Dict[int, int]] = None,
+    worker_func=decode_strings_worker,
+):
+    chunks = chunk_functions(functions, worker_count)
+    if not chunks:
+        return []
+
+    ctx = multiprocessing.get_context("spawn")
+    tasks = [
+        DecodeWorkerArgs(
+            sample_path=sample_path,
+            format=format,
+            sigpaths=sigpaths,
+            min_length=min_length,
+            functions=chunk,
+            verbosity=verbosity,
+        )
+        for chunk in chunks
+    ]
+
+    with ctx.Pool(processes=len(chunks)) as pool:
+        results = pool.map(worker_func, tasks)
+
+    merged: List[floss.results.DecodedString] = []
+    for result in results:
+        merged.extend(result)
+
+    order_map = function_order or {}
+    merged.sort(key=lambda ds: (order_map.get(ds.decoding_routine, math.inf), ds.decoded_at, ds.address, ds.string))
+    return merged
 
 
 def is_running_standalone() -> bool:
@@ -746,6 +847,7 @@ def main(argv=None) -> int:
                 )
 
         sigpaths = get_signatures(args.signatures)
+        worker_count = get_worker_count(args.workers)
 
         should_save_workspace = os.environ.get("FLOSS_SAVE_WORKSPACE") not in ("0", "no", "NO", "n", None)
         try:
@@ -835,13 +937,27 @@ def main(argv=None) -> int:
                     logger.debug("  - 0x%x: score: %.3f, xrefs to: %d", fva, score, xrefs_to)
 
             # TODO filter out strings decoded in library function or function only called by library function(s)
-            results.strings.decoded_strings = decode_strings(
-                vw,
-                fvas_to_emulate,
-                args.min_length,
-                verbosity=args.verbose,
-                disable_progress=args.quiet or args.disable_progress,
-            )
+            function_order = {fva: index for index, fva in enumerate(fvas_to_emulate)}
+            if worker_count > 1 and len(fvas_to_emulate) > 1:
+                logger.info("decoding strings with %d worker processes", worker_count)
+                results.strings.decoded_strings = decode_strings_parallel(
+                    sample,
+                    args.format,
+                    sigpaths,
+                    fvas_to_emulate,
+                    args.min_length,
+                    args.verbose,
+                    worker_count,
+                    function_order,
+                )
+            else:
+                results.strings.decoded_strings = decode_strings(
+                    vw,
+                    fvas_to_emulate,
+                    args.min_length,
+                    verbosity=args.verbose,
+                    disable_progress=args.quiet or args.disable_progress,
+                )
             results.analysis.functions.analyzed_decoded_strings = len(fvas_to_emulate)
             results.metadata.runtime.decoded_strings = get_runtime_diff(interim)
 
