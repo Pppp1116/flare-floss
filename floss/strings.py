@@ -14,6 +14,7 @@
 
 
 import re
+from functools import lru_cache
 from typing import Iterable
 from itertools import chain
 
@@ -41,6 +42,24 @@ def extract_ascii_unicode_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
     yield from chain(extract_ascii_strings(buf, n), extract_unicode_strings(buf, n))
 
 
+@lru_cache(maxsize=None)
+def _ascii_regex(min_length: int) -> re.Pattern:
+    if min_length == 4:
+        return ASCII_RE_4
+
+    reg = rb"([%s]{%d,})" % (ASCII_BYTE, min_length)
+    return re.compile(reg)
+
+
+@lru_cache(maxsize=None)
+def _unicode_regex(min_length: int) -> re.Pattern:
+    if min_length == 4:
+        return UNICODE_RE_4
+
+    reg = rb"((?:[%s]\x00){%d,})" % (ASCII_BYTE, min_length)
+    return re.compile(reg)
+
+
 def extract_ascii_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
     """
     Extract ASCII strings from the given binary data.
@@ -58,13 +77,8 @@ def extract_ascii_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
     if (buf[0] in REPEATS) and buf_filled_with(buf, buf[0]):
         return
 
-    r = None
-    if n == 4:
-        r = ASCII_RE_4
-    else:
-        reg = rb"([%s]{%d,})" % (ASCII_BYTE, n)
-        r = re.compile(reg)
-    for match in r.finditer(buf):
+    regex = _ascii_regex(n)
+    for match in regex.finditer(buf):
         yield StaticString(string=match.group().decode("ascii"), offset=match.start(), encoding=StringEncoding.ASCII)
 
 
@@ -85,12 +99,8 @@ def extract_unicode_strings(buf, n=MIN_LENGTH) -> Iterable[StaticString]:
     if (buf[0] in REPEATS) and buf_filled_with(buf, buf[0]):
         return
 
-    if n == 4:
-        r = UNICODE_RE_4
-    else:
-        reg = rb"((?:[%s]\x00){%d,})" % (ASCII_BYTE, n)
-        r = re.compile(reg)
-    for match in r.finditer(buf):
+    regex = _unicode_regex(n)
+    for match in regex.finditer(buf):
         try:
             yield StaticString(
                 string=match.group().decode("utf-16"), offset=match.start(), encoding=StringEncoding.UTF16LE
