@@ -113,6 +113,18 @@ class ArgumentParser(argparse.ArgumentParser):
         raise ArgumentValueError("%(prog)s: error: %(message)s" % args)
 
 
+def non_negative_int(value: str) -> int:
+    try:
+        parsed = int(value, 0)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError("max file size must be an integer") from e
+
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("max file size must be zero or a positive integer")
+
+    return parsed
+
+
 def make_parser(argv):
     desc = (
         "The FLARE team's open-source tool to extract ALL strings from malware.\n"
@@ -265,6 +277,12 @@ def make_parser(argv):
             if show_all_options
             else argparse.SUPPRESS
         ),
+    )
+    advanced_group.add_argument(
+        "--max-file-size",
+        type=non_negative_int,
+        default=None,
+        help="override the maximum allowed file size in bytes (default: {:d})".format(MAX_FILE_SIZE),
     )
     advanced_group.add_argument(
         "--version",
@@ -525,10 +543,13 @@ def main(argv=None) -> int:
         if args.enabled_types and args.disabled_types:
             parser.error("--no and --only arguments are not allowed together")
     except ArgumentValueError as e:
+        parser.print_help()
         print(e)
         return -1
 
     set_log_config(args.debug, args.quiet)
+
+    max_size_to_floss = args.max_file_size if args.max_file_size is not None else MAX_FILE_SIZE
 
     if hasattr(args, "signatures"):
         if args.signatures == SIGNATURES_PATH_DEFAULT_STRING:
@@ -581,7 +602,10 @@ def main(argv=None) -> int:
 
         return 0
 
-    results = ResultDocument(metadata=Metadata(file_path=str(sample), min_length=args.min_length), analysis=analysis)
+    results = ResultDocument(
+        metadata=Metadata(file_path=str(sample), min_length=args.min_length, max_file_size=max_size_to_floss),
+        analysis=analysis,
+    )
 
     sample_size = sample.stat().st_size
     if sample_size > sys.maxsize:
@@ -708,11 +732,11 @@ def main(argv=None) -> int:
         or results.analysis.enable_stack_strings
         or results.analysis.enable_tight_strings
     ):
-        if sample_size > MAX_FILE_SIZE:
+        if sample_size > max_size_to_floss:
             if not args.large_file:
                 logger.error(
                     "cannot deobfuscate strings from files larger than 0x%x bytes",
-                    MAX_FILE_SIZE,
+                    max_size_to_floss,
                 )
                 return -1
             else:
