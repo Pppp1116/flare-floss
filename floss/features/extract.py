@@ -30,6 +30,7 @@ from floss.features.features import (
     Nzxor,
     Shift,
     CallsTo,
+    BufferCopy,
     NzxorLoop,
     TightLoop,
     BlockCount,
@@ -43,6 +44,7 @@ from floss.features.features import (
 SECURITY_COOKIE_BYTES_DELTA = 0x40
 
 SHIFT_ROTATE_INS = (INS_SHL, INS_SHR, INS_ROL, INS_ROR)
+BUFFER_COPY_MNEMS = {"movsb", "movsw", "movsd", "movsq"}
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -125,6 +127,15 @@ def extract_insn_mov(f, bb, insn):
         if isinstance(op0, envi.archs.i386.disasm.i386RegMemOper):
             if op0.disp == 0:
                 yield Mov(insn)
+
+
+def extract_insn_buffer_copy(f, bb, insn):
+    # detect bulk memory moves often used when copying decoded buffers
+    mnem = insn.mnem.lower()
+    # vivisect sets rep-prefixed mnemonics like "rep movsb"
+    base_mnem = mnem.split()[-1]
+    if base_mnem in BUFFER_COPY_MNEMS:
+        yield BufferCopy(insn)
 
 
 def extract_function_calls_to(f):
@@ -346,6 +357,7 @@ INSTRUCTION_HANDLERS = (
     extract_insn_nzxor,
     extract_insn_shift,
     extract_insn_mov,
+    extract_insn_buffer_copy,
 )
 
 

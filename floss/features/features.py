@@ -152,6 +152,16 @@ class Mov(Mnem):
     weight = MEDIUM
 
 
+class BufferCopy(Mnem):
+    """rep movs*/movs* instructions that copy buffers directly.
+
+    These often wrap tight decoding loops that stream decoded bytes into
+    writable memory, so they are a useful heuristic for candidate selection.
+    """
+
+    weight = MEDIUM
+
+
 class CallsTo(Feature):
     weight = MEDIUM
     max_calls_to = None
@@ -167,6 +177,25 @@ class CallsTo(Feature):
 
     def score(self):
         return float(self.value / self.max_calls_to)
+
+
+class XrefCount(Feature):
+    """Number of incoming code references for the function.
+
+    Functions that are referenced from many locations are more likely to
+    participate in shared decoding helpers than one-off initialization code.
+    The score is normalized against the maximum xref count across the binary
+    to keep the heuristic relative instead of absolute.
+    """
+
+    weight = MEDIUM
+
+    def __init__(self, xref_count: int, max_xref_count: int):
+        super().__init__(xref_count)
+        self.max_xref_count = max(1, max_xref_count)
+
+    def score(self):
+        return float(self.value / self.max_xref_count)
 
 
 class Loop(Feature):
