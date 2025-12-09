@@ -30,6 +30,20 @@ Alternatively, you can load FLOSS JSON results directly in Ghidra without the re
 step by running the `ghidra_floss_import.py` script from Ghidra's Script Manager. The
 script will prompt for the JSON file and add comments and bookmarks to the open program.
 
+`ghidra_floss_import.py` supports a few workflow-friendly options (configured at the top
+of the script):
+
+- `IMPORT_DECODED`, `IMPORT_STACK`, `IMPORT_TIGHT`: enable or disable specific string types.
+- `MIN_LENGTH`: only import strings whose length meets or exceeds this value.
+- `TRUNCATE_LONG_STRINGS`: truncate overly long comments to keep disassembly readable.
+
+When FLOSS metadata contains an image base or hash, the script validates the currently
+loaded program, warns on mismatches, and can optionally rebase if the image base differs.
+Decoded, stack, and tight strings are placed into separate bookmark categories with
+distinct colors, and existing comments are preserved by appending FLOSS annotations.
+Decoded strings also annotate both the decoding routine entry point and the callsite when
+available.
+
 For x64dbg:
 - Instead of a Python file, redirect the output to a .json file.  
     `$ python render-x64dbg-database.py floss-results.json > database.json`
