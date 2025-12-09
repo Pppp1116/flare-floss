@@ -121,6 +121,30 @@ Binary fixtures live in the companion [flare-floss-testfiles](https://github.com
 and may be distributed via git-lfs. When those assets are missing, the corresponding data-heavy tests will be skipped, while
 the lightweight unit tests still execute.
 
+## Building a Windows executable
+FLOSS can be packaged into a standalone Windows console executable using PyInstaller (Python 3.11+).
+
+Requirements:
+
+- Windows 10/11 (x64)
+- Python 3.11 or newer with PyInstaller installed (`pip install pyinstaller` or `pip install .[build]`)
+
+To build `floss.exe` from PowerShell:
+
+```
+pwsh -File scripts/build_exe.ps1
+```
+
+Alternatively, run PyInstaller directly:
+
+```
+pyinstaller floss.spec
+```
+
+The resulting binary is placed in `dist\floss\floss.exe`. The build bundles embedded signatures, the Ghidra import/export
+scripts, and FLOSS icons alongside the executable. Resource lookups use `floss.resources.resource_path(...)` so packaged
+data remains accessible when running the frozen build.
+
 ## Scripts
 FLOSS also contains additional Python scripts in the [scripts](scripts) directory
 which can be used to load its output into other tools such as Binary Ninja or IDA Pro.

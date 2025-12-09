@@ -37,6 +37,7 @@ import floss.utils
 import floss.results
 import floss.version
 import floss.logging_
+import floss.resources
 import floss.render.json
 import floss.language.utils
 import floss.render.default
@@ -594,29 +595,6 @@ def decode_strings_parallel(
     return merged
 
 
-def is_running_standalone() -> bool:
-    """
-    are we running from a PyInstaller'd executable?
-    if so, then we'll be able to access `sys._MEIPASS` for the packaged resources.
-    """
-    return hasattr(sys, "frozen") and hasattr(sys, "_MEIPASS")
-
-
-def get_default_root() -> Path:
-    """
-    get the file system path to the default resources directory.
-    under PyInstaller, this comes from _MEIPASS.
-    under source, this is the root directory of the project.
-    """
-    if is_running_standalone():
-        # pylance/mypy don't like `sys._MEIPASS` because this isn't standard.
-        # its injected by pyinstaller.
-        # so we'll fetch this attribute dynamically.
-        return Path(getattr(sys, "_MEIPASS"))
-    else:
-        return Path(__file__).resolve().parent
-
-
 def get_signatures(sigs_path: Path) -> List[Path]:
     if not sigs_path.exists():
         raise IOError("signatures path %s does not exist or cannot be accessed" % str(sigs_path))
@@ -680,7 +658,7 @@ def main(argv=None) -> int:
             )
             logger.debug("-" * 80)
 
-            sigs_path = get_default_root() / "sigs"
+            sigs_path = floss.resources.resource_path("sigs")
         else:
             sigs_path = Path(args.signatures)
             logger.debug("using signatures path: %s", str(sigs_path))

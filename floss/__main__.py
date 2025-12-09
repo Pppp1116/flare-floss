@@ -2,4 +2,10 @@ import sys
 
 from floss.main import main
 
-sys.exit(main())
+
+def run():
+    sys.exit(main())
+
+
+if __name__ == "__main__":
+    run()
