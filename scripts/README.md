@@ -19,12 +19,16 @@ and redirect it to a JSON file.
 
 For Binary Ninja, IDA Pro, Ghidra or Radare2:
 - Run the script for your tool of choice by passing the result json file as an argument and
-redirect the output to a Python (.py) file.  
+redirect the output to a Python (.py) file.
 
-Ghidra Example:  
+Ghidra Example:
     `$ python render-ghidra-import-script.py floss_results.json > apply_floss.py`
 
 - Run the Python script `apply_floss.py` using the desired tool.
+
+Alternatively, you can load FLOSS JSON results directly in Ghidra without the rendering
+step by running the `ghidra_floss_import.py` script from Ghidra's Script Manager. The
+script will prompt for the JSON file and add comments and bookmarks to the open program.
 
 For x64dbg:
 - Instead of a Python file, redirect the output to a .json file.  
