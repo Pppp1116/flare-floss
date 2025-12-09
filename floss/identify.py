@@ -31,7 +31,7 @@ from floss.features.extract import (
     extract_function_features,
     extract_basic_block_features,
 )
-from floss.features.features import Arguments, BlockCount, TightFunction, InstructionCount
+from floss.features.features import Arguments, BlockCount, TightFunction, InstructionCount, XrefCount
 
 logger = floss.logging_.getLogger(__name__)
 
@@ -130,6 +130,9 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
 
     library_functions: Dict[int, str] = dict()
 
+    function_xref_counts = {int(fva): len(list(vw.getXrefsTo(int(fva)))) for fva in functions}
+    max_xref_count = max(function_xref_counts.values()) if function_xref_counts else 1
+
     pbar = tqdm.tqdm
     if disable_progress:
         logger.info("identifying decoding function features...")
@@ -167,13 +170,14 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
             function_data = {
                 "meta": get_function_meta(f),
                 "features": [],
-                "xrefs_to": len(list(vw.getXrefsTo(function_address))),
+                "xrefs_to": function_xref_counts.get(function_address, 0),
             }
 
             # meta data features
             function_data["features"].append(BlockCount(function_data["meta"].get("block_count")))
             function_data["features"].append(InstructionCount(function_data["meta"].get("instruction_count")))
             function_data["features"].append(Arguments(function_data["meta"].get("api", []).get("arguments")))
+            function_data["features"].append(XrefCount(function_data["xrefs_to"], max_xref_count))
 
             for feature in extract_function_features(f):
                 function_data["features"].append(feature)
