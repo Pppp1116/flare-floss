@@ -30,6 +30,12 @@ Alternatively, you can load FLOSS JSON results directly in Ghidra without the re
 step by running the `ghidra_floss_import.py` script from Ghidra's Script Manager. The
 script will prompt for the JSON file and add comments and bookmarks to the open program.
 
+To build a round-trip workflow, Ghidra analysts can also export decoder hints with
+`ghidra_floss_export_hints.py`. Configure the prefixes, bookmark categories, and comment
+markers at the top of the script (or use the prompts) to collect addresses to
+`force`, `deprioritize`, or `ignore`. The script writes a JSON document containing the
+program hash and image base so FLOSS can validate it on import.
+
 `ghidra_floss_import.py` supports a few workflow-friendly options (configured at the top
 of the script):
 
@@ -43,6 +49,12 @@ Decoded, stack, and tight strings are placed into separate bookmark categories w
 distinct colors, and existing comments are preserved by appending FLOSS annotations.
 Decoded strings also annotate both the decoding routine entry point and the callsite when
 available.
+
+Pass exported hints back into FLOSS with `--hints-json /path/to/hints.json` (or the
+`FLOSS_HINTS_JSON` environment variable). FLOSS validates the hash and image base by
+default; use `--ignore-hints-hash-mismatch` if you intentionally want to override that
+check. Ignored functions are only removed from emulation when `--enable-hints-ignore` is
+provided, keeping the default behavior unchanged when hints are absent.
 
 For x64dbg:
 - Instead of a Python file, redirect the output to a .json file.  

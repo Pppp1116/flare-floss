@@ -25,6 +25,7 @@ import viv_utils.flirt
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 import floss.logging_
+from floss.hints import FlossHints
 from floss.utils import is_thunk_function, redirecting_print_to_tqdm
 from floss.features.extract import (
     abstract_features,
@@ -79,6 +80,8 @@ def get_max_calls_to(vw, skip_thunks=True, skip_libs=True):
 class BonusScoringConfig:
     weight_multiplier: float = 0.3
     cap: float = 0.5
+    hint_force_bonus: float = 0.25
+    deprioritize_bonus_cap: float = 0.25
 
 
 BONUS_SCORING_CONFIG = BonusScoringConfig()
@@ -86,7 +89,7 @@ BONUS_WEIGHT_MULTIPLIER = BONUS_SCORING_CONFIG.weight_multiplier
 BONUS_CAP = BONUS_SCORING_CONFIG.cap
 
 
-def get_function_score_weighted(features, bonus_config: BonusScoringConfig = BONUS_SCORING_CONFIG):
+def get_function_score_breakdown(features, bonus_config: BonusScoringConfig = BONUS_SCORING_CONFIG):
     base_features = [feature for feature in features if not getattr(feature, "is_bonus", False)]
     bonus_features = [feature for feature in features if getattr(feature, "is_bonus", False)]
 
@@ -102,11 +105,20 @@ def get_function_score_weighted(features, bonus_config: BonusScoringConfig = BON
         normalized_bonus = bonus_weighted_sum / max(base_weight, 1.0)
         bonus_score = min(bonus_config.cap, bonus_config.weight_multiplier * normalized_bonus)
 
+    return base_score, bonus_score
+
+
+def get_function_score_weighted(features, bonus_config: BonusScoringConfig = BONUS_SCORING_CONFIG):
+    base_score, bonus_score = get_function_score_breakdown(features, bonus_config)
     return round(min(1.0, base_score + bonus_score), 3)
 
 
 def get_top_functions(candidate_functions, count=20) -> List[Dict[int, Dict]]:
-    return sorted(candidate_functions.items(), key=lambda x: operator.getitem(x[1], "score"), reverse=True)[:count]
+    return sorted(
+        candidate_functions.items(),
+        key=lambda x: x[1].get("hinted_score", operator.getitem(x[1], "score")),
+        reverse=True,
+    )[:count]
 
 
 def get_tight_function_fvas(decoding_function_features) -> List[int]:
@@ -123,6 +135,13 @@ def append_unique(fvas, fvas_to_append):
         if fva not in fvas:
             fvas.append(fva)
     return fvas
+
+
+def _ensure_components(data):
+    if "score_components" not in data:
+        data["score_components"] = {"base": data.get("score", 0.0), "bonus": 0.0}
+    if "score" not in data:
+        data["score"] = 0.0
 
 
 def get_function_fvas(functions) -> List[int]:
@@ -220,7 +239,9 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
             for feature in abstract_features(function_data["features"]):
                 function_data["features"].append(feature)
 
-            function_data["score"] = get_function_score_weighted(function_data["features"])
+            base_score, bonus_score = get_function_score_breakdown(function_data["features"])
+            function_data["score_components"] = {"base": base_score, "bonus": bonus_score}
+            function_data["score"] = round(min(1.0, base_score + bonus_score), 3)
 
             logger.debug("analyzed function 0x%x - total score: %.3f", function_address, function_data["score"])
             for feat in function_data["features"]:
@@ -229,3 +250,55 @@ def find_decoding_function_features(vw, functions, disable_progress=False) -> Tu
             decoding_candidate_functions[function_address] = function_data
 
         return decoding_candidate_functions, library_functions
+
+
+def apply_hint_scores(
+    decoding_candidate_functions: Dict[int, Dict],
+    hints: FlossHints,
+    bonus_config: BonusScoringConfig = BONUS_SCORING_CONFIG,
+    valid_fvas: Tuple[int, ...] = (),
+    ignore_functions: bool = False,
+):
+    """Apply FLOSS hints without lowering baseline scores."""
+
+    adjusted_candidates = copy.deepcopy(decoding_candidate_functions)
+    valid_fvas_set = set(valid_fvas) or set(decoding_candidate_functions.keys())
+
+    for fva, data in adjusted_candidates.items():
+        _ensure_components(data)
+        base = data["score_components"].get("base", 0.0)
+        bonus = data["score_components"].get("bonus", 0.0)
+
+        hint_bonus = bonus_config.hint_force_bonus if fva in hints.force_candidates else 0.0
+        if fva in hints.deprioritize_functions:
+            bonus = min(bonus, bonus_config.deprioritize_bonus_cap)
+
+        adjusted_bonus = min(bonus_config.cap, bonus + hint_bonus)
+        hinted_score = round(min(1.0, base + adjusted_bonus), 3)
+        data["score_components"].update({"hint_bonus": hint_bonus, "adjusted_bonus": adjusted_bonus})
+        data["hinted_score"] = hinted_score
+        data["score"] = max(data.get("score", 0.0), hinted_score)
+
+    for fva in hints.force_candidates:
+        if fva in adjusted_candidates:
+            continue
+        if fva not in valid_fvas_set:
+            logger.warning("forced hint function 0x%x not present in workspace; skipping", fva)
+            continue
+        adjusted_bonus = min(bonus_config.cap, bonus_config.hint_force_bonus)
+        adjusted_candidates[fva] = {
+            "meta": {},
+            "features": [],
+            "xrefs_to": 0,
+            "score_components": {"base": 0.0, "bonus": 0.0, "hint_bonus": bonus_config.hint_force_bonus, "adjusted_bonus": adjusted_bonus},
+            "hinted_score": round(adjusted_bonus, 3),
+            "score": round(adjusted_bonus, 3),
+        }
+
+    if ignore_functions:
+        for fva in hints.ignore_functions:
+            if fva in adjusted_candidates:
+                logger.debug("removing function 0x%x due to ignore hints", fva)
+                adjusted_candidates.pop(fva, None)
+
+    return adjusted_candidates
