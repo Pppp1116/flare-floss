@@ -1,9 +1,11 @@
 import pathlib
 
 import pytest
+import pefile
 
 from floss.results import StaticString, StringEncoding
-from floss.language.go.extract import extract_go_strings
+from floss.language.utils import StructString
+from floss.language.go.extract import extract_go_strings, read_struct_string
 from tests.helpers import require_file, require_directory
 
 
@@ -158,3 +160,14 @@ def test_strings_with_newline_char_0A(request, string, offset, encoding, go_stri
 )
 def test_import_data(request, string, offset, encoding, go_strings):
     assert StaticString(string=string, offset=offset, encoding=encoding) in request.getfixturevalue(go_strings)
+
+
+def test_struct_string_bounds_guard():
+    sample = require_file(GO_HELLO_DIR / "go-hello64.exe")
+    pe = pefile.PE(data=pathlib.Path(sample).read_bytes(), fast_load=True)
+
+    last_section = pe.sections[-1]
+    past_end_address = pe.OPTIONAL_HEADER.ImageBase + last_section.VirtualAddress + last_section.SizeOfRawData - 2
+
+    with pytest.raises(ValueError):
+        read_struct_string(pe, StructString(address=past_end_address, length=32))

@@ -175,7 +175,7 @@ def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticSt
     #  .rdata:00000001400C1271 70 61 6E 69 63 6B 65 64…                db 'panicked after panic::always_abort(), aborting.',0Ah,0
     #  .rdata:00000001400C12A2 00 00 00 00 00 00                       align 8
 
-    struct_string_addrs = map(lambda c: c.address, get_struct_string_candidates(pe))
+    struct_string_addrs = list(map(lambda c: c.address, get_struct_string_candidates(pe)))
 
     if pe.FILE_HEADER.Machine == pefile.MACHINE_TYPE["IMAGE_FILE_MACHINE_I386"]:
         xrefs_lea = find_lea_xrefs(pe)
@@ -196,7 +196,7 @@ def get_string_blob_strings(pe: pefile.PE, min_length: int) -> Iterable[StaticSt
         logger.error("unsupported architecture: %s", pe.FILE_HEADER.Machine)
         return []
 
-    for addr in xrefs:
+    for addr in set(xrefs):
         address = addr - image_base - virtual_address + pointer_to_raw_data
 
         if not (start_rdata <= address < end_rdata):

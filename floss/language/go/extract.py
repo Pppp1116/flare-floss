@@ -179,14 +179,32 @@ def read_struct_string(pe: pefile.PE, instance: StructString) -> str:
     read the string for the given struct String instance,
     validating that it looks like UTF-8,
     or raising a ValueError.
+
+    The implementation performs a few cheap sanity checks to avoid
+    obviously bogus candidates (eg, lengths that run past the section
+    boundary). These avoid decoding garbage while keeping behavior
+    compatible with valid inputs.
     """
     image_base = pe.OPTIONAL_HEADER.ImageBase
 
     instance_rva = instance.address - image_base
+    section = pe.get_section_by_rva(instance_rva)
+    if section is None:
+        raise ValueError("struct string instance not mapped to a section")
+
+    section_data = section.get_data()
+    section_offset = instance_rva - section.VirtualAddress
+
+    if instance.length < 0:
+        raise ValueError("struct string length invalid")
+
+    end_offset = section_offset + instance.length
+    if end_offset + 1 > len(section_data):
+        raise ValueError("struct string length exceeds section size")
 
     # fetch data for the string *and* the next byte,
     # which we'll use to ensure the string is not NULL terminated.
-    buf = pe.get_data(instance_rva, instance.length + 1)
+    buf = memoryview(section_data)[section_offset : end_offset + 1]
     instance_data = buf[: instance.length]
     next_byte = buf[instance.length]
 
@@ -304,7 +322,10 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
 
     with floss.utils.timing("collect string blob strings"):
         string_blob_size = string_blob_end - string_blob_start
-        string_blob_buf = pe.get_data(string_blob_start - image_base, string_blob_size)
+        if string_blob_size <= 0:
+            return
+
+        string_blob_buf = memoryview(pe.get_data(string_blob_start - image_base, string_blob_size))
 
         string_blob_pointers: List[VA] = []
 
@@ -327,6 +348,9 @@ def get_string_blob_strings(pe: pefile.PE, min_length) -> Iterable[StaticString]
             assert string_blob_start <= end < string_blob_end
 
             size = end - start
+            if size <= 0 or size > string_blob_size:
+                continue
+
             string_blob_offset = start - string_blob_start
             sbuf = string_blob_buf[string_blob_offset : string_blob_offset + size]
 
