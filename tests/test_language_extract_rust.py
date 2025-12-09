@@ -1,6 +1,7 @@
 import pathlib
 
 import pytest
+import pefile
 
 from tests.helpers import require_directory, require_file
 
@@ -10,6 +11,7 @@ require_directory(RUST_HELLO_DIR, allow_module_level=True)
 
 from floss.results import StaticString, StringEncoding
 from floss.language.rust.extract import extract_rust_strings
+from floss.language.utils import get_rdata_section
 
 
 @pytest.fixture(scope="module")
@@ -86,3 +88,16 @@ def test_push(request, string, offset, encoding, rust_strings):
 )
 def test_mov_jmp(request, string, offset, encoding, rust_strings):
     assert StaticString(string=string, offset=offset, encoding=encoding) in request.getfixturevalue(rust_strings)
+
+
+def test_rust_strings_within_rdata():
+    sample = require_file(RUST_HELLO_DIR / "rust-hello64.exe")
+    pe = pefile.PE(data=pathlib.Path(sample).read_bytes(), fast_load=True)
+    rdata = get_rdata_section(pe)
+
+    start_rdata = rdata.PointerToRawData
+    end_rdata = start_rdata + rdata.SizeOfRawData
+
+    rust_strings = extract_rust_strings(sample, 6)
+    for rust_string in rust_strings:
+        assert start_rdata <= rust_string.offset < end_rdata
