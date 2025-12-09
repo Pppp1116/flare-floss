@@ -70,6 +70,46 @@ Display the help/usage screens:
 For a detailed description of using FLOSS, review the documentation
  [here](doc/usage.md).
 
+## Command-line arguments
+When you download a standalone FLOSS executable (e.g., `floss.exe`), run it from a terminal using:
+
+```
+floss.exe [OPTIONS] <path-to-sample>
+```
+
+The `-h` flag shows the core arguments, while `-H` prints the full list. All options below apply to the executable build.
+
+### Core arguments
+- `sample` (positional): Path to the file to analyze (opened in binary mode).
+- `-H`: Show advanced options and exit.
+- `-n`, `--minimum-length <int>`: Minimum string length (default: 4).
+
+### Analysis arguments
+- `--no {static,decoded,stack,tight}`: Do not extract the specified string type(s). Accepts one or more values; end options with `--` before the sample path when combining.
+- `--only {static,decoded,stack,tight}`: Only extract the specified string type(s). Cannot be combined with `--no`.
+
+### Advanced arguments
+- `-f`, `--format {auto,pe,sc32,sc64}`: Select sample format (`auto` detects automatically).
+- `--language {go,rust,none}`: Use language-specific string extraction; `none` disables auto-detection.
+- `-l`, `--load`: Load from an existing FLOSS results JSON document instead of analyzing a sample file.
+- `--functions <hex ...>`: Only analyze the specified functions (hex-encoded addresses like `0x401000`). Accepts multiple values separated by spaces.
+- `--workers <int>`: Number of worker processes for decoded strings (default: 1; can also set `FLOSS_WORKERS`).
+- `--disable-progress`: Disable all progress bars.
+- `--signatures <path>`: Path to `.sig`/`.pat` file or directory for library function identification (defaults to embedded signatures).
+- `-L`, `--large-file`: Allow processing files larger than the default limit.
+- `--max-file-size <bytes>`: Override the maximum allowed file size in bytes.
+- `--version`: Show FLOSS version and exit.
+- `--install-right-click-menu` / `--uninstall-right-click-menu` (Windows only): Add or remove the "Open with FLOSS" context-menu entry in Windows Explorer.
+
+### Rendering arguments
+- `-j`, `--json`: Emit JSON instead of text.
+- `-v`, `--verbose`: Enable verbose results (can be repeated to increase detail; does not affect JSON output).
+
+### Logging arguments
+- `-d`, `--debug`: Enable debugging output to `STDERR`; repeat to increase verbosity.
+- `-q`, `--quiet`: Disable all status output on `STDOUT` except fatal errors.
+- `--color {auto,always,never}`: Control ANSI color codes in results (default: `auto`).
+
 ## Scripts
 FLOSS also contains additional Python scripts in the [scripts](scripts) directory 
 which can be used to load its output into other tools such as Binary Ninja or IDA Pro.
