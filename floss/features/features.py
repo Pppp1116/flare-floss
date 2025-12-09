@@ -23,6 +23,8 @@ SEVERE = 1.00
 
 
 class Feature:
+    is_bonus = False
+
     def __init__(self, value):
         super(Feature, self).__init__()
 
@@ -160,6 +162,7 @@ class BufferCopy(Mnem):
     """
 
     weight = MEDIUM
+    is_bonus = True
 
 
 class CallsTo(Feature):
@@ -189,6 +192,7 @@ class XrefCount(Feature):
     """
 
     weight = MEDIUM
+    is_bonus = True
 
     def __init__(self, xref_count: int, max_xref_count: int):
         super().__init__(xref_count)

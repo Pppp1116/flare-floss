@@ -16,6 +16,7 @@
 import copy
 import operator
 import collections
+from dataclasses import dataclass
 from typing import Dict, List, Tuple, DefaultDict
 
 import tqdm
@@ -74,8 +75,34 @@ def get_max_calls_to(vw, skip_thunks=True, skip_libs=True):
     return max(calls_to)
 
 
-def get_function_score_weighted(features):
-    return round(sum(feature.weighted_score() for feature in features) / sum(feature.weight for feature in features), 3)
+@dataclass(frozen=True)
+class BonusScoringConfig:
+    weight_multiplier: float = 0.3
+    cap: float = 0.5
+
+
+BONUS_SCORING_CONFIG = BonusScoringConfig()
+BONUS_WEIGHT_MULTIPLIER = BONUS_SCORING_CONFIG.weight_multiplier
+BONUS_CAP = BONUS_SCORING_CONFIG.cap
+
+
+def get_function_score_weighted(features, bonus_config: BonusScoringConfig = BONUS_SCORING_CONFIG):
+    base_features = [feature for feature in features if not getattr(feature, "is_bonus", False)]
+    bonus_features = [feature for feature in features if getattr(feature, "is_bonus", False)]
+
+    base_weight = sum(feature.weight for feature in base_features)
+    base_score = 0.0
+    if base_weight:
+        base_score = sum(feature.weighted_score() for feature in base_features) / base_weight
+
+    bonus_weight = sum(feature.weight for feature in bonus_features)
+    bonus_score = 0.0
+    if bonus_weight:
+        bonus_weighted_sum = sum(max(feature.weighted_score(), 0.0) for feature in bonus_features)
+        normalized_bonus = bonus_weighted_sum / max(base_weight, 1.0)
+        bonus_score = min(bonus_config.cap, bonus_config.weight_multiplier * normalized_bonus)
+
+    return round(min(1.0, base_score + bonus_score), 3)
 
 
 def get_top_functions(candidate_functions, count=20) -> List[Dict[int, Dict]]:
