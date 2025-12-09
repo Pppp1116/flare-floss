@@ -2,6 +2,11 @@ from pathlib import Path
 
 import pytest
 
+from tests.helpers import require_directory, require_file
+
+LANGUAGE_DATA_DIR = Path(__file__).parent / "data" / "language"
+require_directory(LANGUAGE_DATA_DIR, allow_module_level=True)
+
 from floss.utils import get_static_strings
 from floss.language.identify import VERSION_UNKNOWN_OR_NA, Language, identify_language_and_version
 
@@ -24,9 +29,7 @@ from floss.language.identify import VERSION_UNKNOWN_OR_NA, Language, identify_la
 )
 def test_language_detection(binary_file, expected_result, expected_version):
     CD = Path(__file__).resolve().parent
-    abs_path = (CD / binary_file).resolve()
-
-    assert abs_path.exists(), f"File {binary_file} does not exist"
+    abs_path = require_file((CD / binary_file).resolve())
 
     static_strings = get_static_strings(abs_path, 4)
 

@@ -4,6 +4,11 @@ import contextlib
 import pefile
 import pytest
 
+from tests.helpers import require_directory, require_file
+
+RUST_UNKNOWN_DIR = pathlib.Path(__file__).resolve().parent / "data" / "language" / "rust" / "rust-unknown-binaries" / "bin"
+require_directory(RUST_UNKNOWN_DIR, allow_module_level=True)
+
 from floss.strings import extract_ascii_unicode_strings
 from floss.language.utils import get_extract_stats
 from floss.language.rust.extract import extract_rust_strings
@@ -34,9 +39,7 @@ from floss.language.rust.extract import extract_rust_strings
 )
 def test_language_detection_64(binary_file):
     CD = pathlib.Path(__file__).resolve().parent
-    abs_path = (CD / binary_file).resolve()
-
-    assert abs_path.exists(), f"File {binary_file} does not exist"
+    abs_path = require_file((CD / binary_file).resolve())
 
     n = 4
 

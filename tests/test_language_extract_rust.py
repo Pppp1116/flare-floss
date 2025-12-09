@@ -2,6 +2,12 @@ import pathlib
 
 import pytest
 
+from tests.helpers import require_directory, require_file
+
+
+RUST_HELLO_DIR = pathlib.Path(__file__).parent / "data" / "language" / "rust" / "rust-hello" / "bin"
+require_directory(RUST_HELLO_DIR, allow_module_level=True)
+
 from floss.results import StaticString, StringEncoding
 from floss.language.rust.extract import extract_rust_strings
 
@@ -9,15 +15,15 @@ from floss.language.rust.extract import extract_rust_strings
 @pytest.fixture(scope="module")
 def rust_strings32():
     n = 6
-    path = pathlib.Path(__file__).parent / "data" / "language" / "rust" / "rust-hello" / "bin" / "rust-hello.exe"
-    return extract_rust_strings(path, n)
+    path = RUST_HELLO_DIR / "rust-hello.exe"
+    return extract_rust_strings(require_file(path), n)
 
 
 @pytest.fixture(scope="module")
 def rust_strings64():
     n = 6
-    path = pathlib.Path(__file__).parent / "data" / "language" / "rust" / "rust-hello" / "bin" / "rust-hello64.exe"
-    return extract_rust_strings(path, n)
+    path = RUST_HELLO_DIR / "rust-hello64.exe"
+    return extract_rust_strings(require_file(path), n)
 
 
 @pytest.mark.parametrize(

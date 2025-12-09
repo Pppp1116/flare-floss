@@ -4,6 +4,11 @@ import contextlib
 import pefile
 import pytest
 
+from tests.helpers import require_directory, require_file
+
+GO_UNKNOWN_DIR = pathlib.Path(__file__).resolve().parent / "data" / "language" / "go" / "go-unknown-binaries" / "bin"
+require_directory(GO_UNKNOWN_DIR, allow_module_level=True)
+
 from floss.utils import get_static_strings
 from floss.language.go.extract import extract_go_strings
 from floss.language.go.coverage import get_extract_stats
@@ -24,9 +29,7 @@ from floss.language.go.coverage import get_extract_stats
 )
 def test_language_detection_64(binary_file):
     CD = pathlib.Path(__file__).resolve().parent
-    abs_path = (CD / binary_file).resolve()
-
-    assert abs_path.exists(), f"File {binary_file} does not exist"
+    abs_path = require_file((CD / binary_file).resolve())
 
     n = 4
 

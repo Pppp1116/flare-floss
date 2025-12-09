@@ -110,7 +110,18 @@ The `-h` flag shows the core arguments, while `-H` prints the full list. All opt
 - `-q`, `--quiet`: Disable all status output on `STDOUT` except fatal errors.
 - `--color {auto,always,never}`: Control ANSI color codes in results (default: `auto`).
 
+## Testing
+Install the development extras (or pytest directly) and run:
+
+```
+pytest
+```
+
+Binary fixtures live in the companion [flare-floss-testfiles](https://github.com/mandiant/flare-floss-testfiles) repository
+and may be distributed via git-lfs. When those assets are missing, the corresponding data-heavy tests will be skipped, while
+the lightweight unit tests still execute.
+
 ## Scripts
-FLOSS also contains additional Python scripts in the [scripts](scripts) directory 
+FLOSS also contains additional Python scripts in the [scripts](scripts) directory
 which can be used to load its output into other tools such as Binary Ninja or IDA Pro.
 For detailed description of these scripts review the documentation [here](scripts/README.md).
