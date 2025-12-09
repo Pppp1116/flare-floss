@@ -1,7 +1,7 @@
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/flare-floss)
-[![Last release](https://img.shields.io/github/v/release/mandiant/flare-floss)](https://github.com/mandiant/flare-floss/releases)
+[![Last release](https://img.shields.io/github/v/release/Pppp1116/flare-floss)](https://github.com/Pppp1116/flare-floss/releases)
 [![CI status](https://github.com/mandiant/flare-floss/actions/workflows/tests.yml/badge.svg)](https://github.com/mandiant/flare-floss/actions/workflows/tests.yml)
-[![Downloads](https://img.shields.io/github/downloads/mandiant/flare-floss/total)](https://github.com/mandiant/flare-floss/releases)
+[![Downloads](https://img.shields.io/github/downloads/Pppp1116/flare-floss/total)](https://github.com/Pppp1116/flare-floss/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE.txt)
 
 ![FLOSS logo](https://github.com/mandiant/flare-floss/blob/master/resources/floss-logo.png)
@@ -45,7 +45,7 @@ Please consult the documentation to learn more about the [language-specific stri
 
 ## Installation
 To use FLOSS, download a standalone executable file from the releases page:
-https://github.com/mandiant/flare-floss/releases
+https://github.com/Pppp1116/flare-floss/releases
 
 See the [installation documentation](doc/installation.md) for a detailed description of all methods to install FLOSS.
 
