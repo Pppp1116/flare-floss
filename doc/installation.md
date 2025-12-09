@@ -3,7 +3,7 @@
 ## Installation
 You can install FLOSS in a few different ways.
 First, if you simply want to use FLOSS to extract strings, just download
- the [standalone binaries](https://github.com/mandiant/flare-floss/releases/latest).
+ the [standalone binaries](https://github.com/Pppp1116/flare-floss/releases/latest).
 However, if you want to use FLOSS as a Python library,
  you can install the package directly from GitHub using `pip`.
 Finally, if you'd like to contribute patches or features to FLOSS,
@@ -13,7 +13,7 @@ Finally, if you'd like to contribute patches or features to FLOSS,
 
 If you simply want to use FLOSS to extract strings,
 use the standalone binaries we host on GitHub:
- https://github.com/mandiant/flare-floss/releases.
+ https://github.com/Pppp1116/flare-floss/releases.
 These binary executable files contain all the source code,
  Python interpreter, and associated resources needed to make FLOSS run.
 This means you can run it without any installation!
