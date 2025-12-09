@@ -74,7 +74,7 @@ def render_r2_script(result_document: ResultDocument) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="Generate an radare2 script to apply FLOSS results.")
-    parser.add_argument("/path/to/report.json", help="path to JSON document from `floss --json`")
+    parser.add_argument("report_path", help="path to JSON document from `floss --json`")
 
     logging_group = parser.add_argument_group("logging arguments")
 
@@ -84,7 +84,6 @@ def main():
     )
 
     args = parser.parse_args()
-    args.report_path = getattr(args, "/path/to/report.json")
 
     if args.quiet:
         logging.basicConfig(level=logging.WARNING)
