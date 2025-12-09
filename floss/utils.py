@@ -16,6 +16,7 @@ import os
 import re
 import sys
 import mmap
+import hashlib
 import time
 import inspect
 import logging
@@ -484,6 +485,20 @@ def is_string_type_enabled(type_, disabled_types, enabled_types):
         return type_ in enabled_types
     else:
         return True
+
+
+def compute_file_sha256(path: Path) -> str:
+    """Return the SHA256 digest of a file, or an empty string on failure."""
+
+    try:
+        hasher = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
+    except OSError:
+        logger.warning("unable to hash file at %s", path)
+        return ""
 
 
 def get_max_size(size: int, max_: int, api: Optional[Tuple] = None, argv: Optional[Tuple] = None) -> int:

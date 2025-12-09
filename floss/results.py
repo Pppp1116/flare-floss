@@ -204,6 +204,7 @@ class Metadata:
     file_path: str
     version: str = __version__
     imagebase: int = 0
+    sha256: str = ""
     min_length: int = 0
     max_file_size: int = MAX_FILE_SIZE
     runtime: Runtime = field(default_factory=Runtime)

@@ -59,6 +59,7 @@ from floss.utils import (
     get_static_strings,
     get_vivisect_meta_info,
     is_string_type_enabled,
+    compute_file_sha256,
     set_vivisect_log_level,
 )
 from floss.render import Verbosity
@@ -72,12 +73,14 @@ from floss.identify import (
     get_functions_with_tightloops,
     find_decoding_function_features,
     get_functions_without_tightloops,
+    apply_hint_scores,
 )
 from floss.logging_ import TRACE, DebugLevel
 from floss.stackstrings import extract_stackstrings
 from floss.tightstrings import extract_tightstrings
 from floss.string_decoder import decode_strings
 from floss.language.identify import Language, identify_language_and_version
+from floss.hints import FlossHints, EMPTY_HINTS, load_hints
 
 SIGNATURES_PATH_DEFAULT_STRING = "(embedded signatures)"
 EXTENSIONS_SHELLCODE_32 = ("sc32", "raw32")
@@ -255,6 +258,22 @@ def make_parser(argv):
             if show_all_options
             else argparse.SUPPRESS
         ),
+    )
+    advanced_group.add_argument(
+        "--hints-json",
+        help="optional path to a FLOSS hints JSON file (or use FLOSS_HINTS_JSON environment variable)",
+    )
+    advanced_group.add_argument(
+        "--ignore-hints-hash-mismatch",
+        action="store_true",
+        default=False,
+        help="apply hints even if hash or imagebase validation fails",
+    )
+    advanced_group.add_argument(
+        "--enable-hints-ignore",
+        action="store_true",
+        default=False,
+        help="drop functions listed in hints ignore_functions from emulation",
     )
     advanced_group.add_argument(
         "--workers",
@@ -670,7 +689,10 @@ def main(argv=None) -> int:
 
     # alternatively: pass buffer along instead of file path, also should work for stdin
     sample = Path(args.sample.name)
+    hints_path_value = args.hints_json or os.environ.get("FLOSS_HINTS_JSON")
+    hints: FlossHints = EMPTY_HINTS
     args.sample.close()
+    sample_hash = compute_file_sha256(sample)
 
     if args.functions:
         if is_string_type_enabled(StringType.STATIC, args.disabled_types, args.enabled_types):
@@ -704,7 +726,12 @@ def main(argv=None) -> int:
         return 0
 
     results = ResultDocument(
-        metadata=Metadata(file_path=str(sample), min_length=args.min_length, max_file_size=max_size_to_floss),
+        metadata=Metadata(
+            file_path=str(sample),
+            min_length=args.min_length,
+            max_file_size=max_size_to_floss,
+            sha256=sample_hash,
+        ),
         analysis=analysis,
     )
 
@@ -866,6 +893,8 @@ def main(argv=None) -> int:
             return -1
 
         results.metadata.imagebase = get_imagebase(vw)
+        if hints_path_value:
+            hints = load_hints(Path(hints_path_value), sample_hash, results.metadata.imagebase, args.ignore_hints_hash_mismatch)
 
         try:
             selected_functions = select_functions(vw, args.functions)
@@ -918,21 +947,37 @@ def main(argv=None) -> int:
 
         if results.analysis.enable_decoded_strings:
             # TODO select more based on score rather than absolute count?!
-            top_functions = get_top_functions(decoding_function_features, 20)
+            scored_candidates = apply_hint_scores(
+                decoding_function_features,
+                hints,
+                valid_fvas=tuple(selected_functions),
+                ignore_functions=args.enable_hints_ignore,
+            )
+            top_functions = get_top_functions(scored_candidates, 20)
 
             fvas_to_emulate = get_function_fvas(top_functions)
             fvas_tight_functions = get_tight_function_fvas(
                 decoding_function_features
             )  # TODO exclude tight functions from stackstrings analysis?!
             fvas_to_emulate = append_unique(fvas_to_emulate, fvas_tight_functions)
+            forced_candidates = [
+                fva
+                for fva in hints.force_candidates
+                if fva in scored_candidates
+                and not (args.enable_hints_ignore and fva in hints.ignore_functions)
+            ]
+            fvas_to_emulate = append_unique(fvas_to_emulate, forced_candidates)
 
             if len(fvas_to_emulate) == 0:
                 logger.info("no candidate decoding functions found.")
             else:
                 logger.debug("identified %d candidate decoding functions", len(fvas_to_emulate))
                 for fva in fvas_to_emulate:
-                    score = decoding_function_features[fva]["score"]
-                    xrefs_to = decoding_function_features[fva]["xrefs_to"]
+                    if fva not in scored_candidates:
+                        logger.debug("  - 0x%x: score: N/A, xrefs to: 0", fva)
+                        continue
+                    score = scored_candidates[fva]["score"]
+                    xrefs_to = scored_candidates[fva]["xrefs_to"]
                     results.analysis.functions.decoding_function_scores[fva] = {"score": score, "xrefs_to": xrefs_to}
                     logger.debug("  - 0x%x: score: %.3f, xrefs to: %d", fva, score, xrefs_to)
 
