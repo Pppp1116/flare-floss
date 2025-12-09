@@ -14,6 +14,8 @@ First, make sure that `pytest` is installed:
 We test FLOSS using a collection of binary files that implement various decoding routines. You can find the C source code for these tests under the directory `tests/data/src/`.
 
 We store all test-related files in the [flare-floss-testfiles](https://github.com/mandiant/flare-floss-testfiles) repository.
+If these binary fixtures are not available (for example, when git-lfs assets are not pulled),
+the data-heavy tests will be skipped automatically so the lightweight unit tests can still run.
 
 ### Building Binary Test Cases
 

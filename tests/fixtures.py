@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.helpers import require_file
+
 CD = Path(__file__).resolve().parent
 
 
@@ -24,10 +26,10 @@ CD = Path(__file__).resolve().parent
 def exefile() -> str:
     # decode-in-place is among the fastest samples in data/src
     path = CD / "data" / "src" / "decode-in-place" / "bin" / "test-decode-in-place.exe"
-    return str(path)
+    return str(require_file(path))
 
 
 @pytest.fixture
 def scfile() -> str:
     path = CD / "data" / "src" / "shellcode-stackstrings" / "bin" / "shellcode-stackstrings.bin"
-    return str(path)
+    return str(require_file(path))

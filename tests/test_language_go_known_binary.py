@@ -3,6 +3,14 @@ import zipfile
 
 import pytest
 
+from tests.helpers import require_file
+
+VERSIONS_64 = pathlib.Path(__file__).resolve().parent / "data" / "language" / "go" / "go-binaries-all-versions" / "bin" / "versions_64.zip"
+VERSIONS_32 = pathlib.Path(__file__).resolve().parent / "data" / "language" / "go" / "go-binaries-all-versions" / "bin" / "versions_32.zip"
+
+if not VERSIONS_64.exists() or not VERSIONS_32.exists():
+    pytest.skip("Go test binaries archive missing", allow_module_level=True)
+
 from floss.language.go.extract import extract_go_strings
 
 
@@ -21,8 +29,7 @@ def extract_files(request):
 
         CD = pathlib.Path(__file__).resolve().parent
 
-        abs_zip_path = (CD / zip_file_path).resolve()
-        assert abs_zip_path.exists(), f"Zip file {zip_file_path} does not exist"
+        abs_zip_path = require_file((CD / zip_file_path).resolve())
 
         extracted_files = []
 

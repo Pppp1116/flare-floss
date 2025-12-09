@@ -4,20 +4,25 @@ import pytest
 
 from floss.results import StaticString, StringEncoding
 from floss.language.go.extract import extract_go_strings
+from tests.helpers import require_file, require_directory
+
+
+GO_HELLO_DIR = pathlib.Path(__file__).parent / "data" / "language" / "go" / "go-hello" / "bin"
+require_directory(GO_HELLO_DIR, allow_module_level=True)
 
 
 @pytest.fixture(scope="module")
 def go_strings32():
     n = 6
-    path = pathlib.Path(__file__).parent / "data" / "language" / "go" / "go-hello" / "bin" / "go-hello.exe"
-    return extract_go_strings(path, n)
+    path = GO_HELLO_DIR / "go-hello.exe"
+    return extract_go_strings(require_file(path), n)
 
 
 @pytest.fixture(scope="module")
 def go_strings64():
     n = 6
-    path = pathlib.Path(__file__).parent / "data" / "language" / "go" / "go-hello" / "bin" / "go-hello64.exe"
-    return extract_go_strings(path, n)
+    path = GO_HELLO_DIR / "go-hello64.exe"
+    return extract_go_strings(require_file(path), n)
 
 
 @pytest.mark.parametrize(

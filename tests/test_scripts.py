@@ -19,6 +19,7 @@
 #  is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and limitations under the License.
 
+import os
 import sys
 import subprocess
 from pathlib import Path
@@ -26,7 +27,10 @@ from functools import lru_cache
 
 import pytest
 
+from tests.helpers import require_file
+
 CD = Path(__file__).resolve().parent
+FILE_PATH = require_file(CD / "data" / "test-decode-to-stack.exe", allow_module_level=True)
 
 
 def get_script_path(s) -> Path:
@@ -34,13 +38,14 @@ def get_script_path(s) -> Path:
 
 
 def get_file_path() -> Path:
-    return CD / "data" / "test-decode-to-stack.exe"
+    return FILE_PATH
 
 
 def run_program(script_path: Path, args):
     args = [sys.executable] + [str(script_path)] + args
     print("running: '%s'" % args)
-    return subprocess.run(args, capture_output=True)
+    env = {**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parent.parent)}
+    return subprocess.run(args, capture_output=True, env=env)
 
 
 @lru_cache()
